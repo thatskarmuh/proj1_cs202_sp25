@@ -1,0 +1,93 @@
+name: Autograding Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  autograde:
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-classroom[bot]'
+
+    steps:
+      - name: Checkout student code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install pytest
+
+      - name: Run student-written tests
+        id: public-tests
+        continue-on-error: true
+        run: |
+          pytest test_student.py -v > public_results.txt 2>&1 || true
+          FAILED=$(grep -c "failed in" public_results.txt 2>&1 || echo "0")
+          FAILED=$(echo "$FAILED" | tr -d '[:space:]')
+          echo "FAILED count: $FAILED"
+          if [ "$FAILED" -eq 0 ]; then
+            echo "result=$(echo '{"status": "passed"}' | base64 -w 0)" >> $GITHUB_OUTPUT
+          else
+            echo "result=$(echo '{"status": "failed"}' | base64 -w 0)" >> $GITHUB_OUTPUT
+          fi
+          cat $GITHUB_OUTPUT
+
+      - name: Checkout hidden tests
+        uses: actions/checkout@v4
+        with:
+          repository: Duran-Calpoly/proj1_cs202_sp25_tests
+          ref: main
+          path: hidden-tests
+          token: ${{ secrets.HIDDEN_TESTS_TOKEN }}
+
+      - name: Copy student code to hidden tests directory
+        run: |
+          cp proj1.py hidden-tests/
+
+      - name: Run hidden tests
+        id: hidden-tests
+        continue-on-error: true
+        run: |
+          cd hidden-tests || { echo "Failed to cd into hidden-tests"; exit 1; }
+          pytest test_grader.py -v > ../hidden_results.txt 2>&1 || true
+          cat ../hidden_results.txt
+          FAILED=$(grep -c "failed in" ../hidden_results.txt 2>&1 || echo "0")
+          FAILED=$(echo "$FAILED" | tr -d '[:space:]')
+          echo "FAILED count: $FAILED"
+          if [ "$FAILED" -eq 0 ]; then
+            echo "result=$(echo '{"status": "passed"}' | base64 -w 0)" >> $GITHUB_OUTPUT
+          else
+            echo "result=$(echo '{"status": "failed"}' | base64 -w 0)" >> $GITHUB_OUTPUT
+          fi
+          cat $GITHUB_OUTPUT
+
+      - name: Debug test outputs
+        run: |
+          echo "Public Test Result: ${{ steps.public-tests.outputs.result }}"
+          echo "Hidden Test Result: ${{ steps.hidden-tests.outputs.result }}"
+
+      - name: Comment test results on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const publicResult = "${{ steps.public-tests.outputs.result }}" === "eyJzdGF0dXMiOiJwYXNzZWQifQ==" ? "passed" : "failed";
+            const hiddenResult = "${{ steps.hidden-tests.outputs.result }}" === "eyJzdGF0dXMiOiJwYXNzZWQifQ==" ? "passed" : "failed";
+            const body = `**Autograding Results**\n- Student Tests (test_student.py): ${publicResult}\n- Hidden Tests: ${hiddenResult}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
