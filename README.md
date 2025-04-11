@@ -127,36 +127,6 @@ Takes a `GlobeRect` and returns the estimated **surface area of the region in sq
 
 #### ✅ Use a spherical Earth model
 
-Instead of treating the region as a flat rectangle, you'll model the Earth's curvature using the following formula:
-
-```
-A = R² × |λ₂ - λ₁| × |sin(φ₂) - sin(φ₁)|
-```
-
-Where:
-- `R` is the Earth's radius (use `6378.1` kilometers)
-- `λ₁`, `λ₂` are the longitudes in **radians**
-- `φ₁`, `φ₂` are the latitudes in **radians**
-
-This formula calculates the **area of a latitude-longitude band** on the surface of a sphere. It works even if:
-- The region crosses the 180° longitude line
-- The region is near the poles
-- The region is very narrow
-
-> ✅ **Hint**: use `math.radians()` to convert degrees to radians, and `math.sin()` to get the sine of an angle.
-
-Great catch — let’s make sure students understand **why** this piece is there and **how** to implement it correctly.
-
-Here’s an updated version of the explanation with that logic included, written for clarity and accuracy in your README:
-
----
-
-### 🔹 Subtask 3.2: `area(gr)`
-
-Takes a `GlobeRect` and returns the estimated **surface area of the region in square kilometers**.
-
-#### ✅ Use a spherical Earth model
-
 Instead of treating the region as a flat rectangle, use the formula for computing the area of a region on a **sphere**:
 
 \[
